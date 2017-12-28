@@ -1,0 +1,34 @@
+baseurl = "/"
+publishDir = "../jimskinner.github.io"
+title = "Jim Skinner"
+author = "Jim Skinner"
+canonifyurls = true
+languagecode = "en-uk"
+theme = "hugo-tanka"
+
+disable_mathjax = false
+
+pygmentsstyle      = "vs"
+pygmentscodefences = true
+
+ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
+
+[params]
+  sitename = "Jim Skinner"
+
+[[menu.main]]
+    name = "Home"
+    url = "https://jimskinner.github.io"
+    weight = 1
+[[menu.main]]
+    name = "Academic"
+    url = "https://warwick.ac.uk/JSkinner"
+    weight = 2
+[[menu.main]]
+    name = "Twitter"
+    url = "https://twitter.com/JimRSkinner"
+    weight = 3
+[[menu.main]]
+    name = "GitHub"
+    url = "https://github.com/JimSkinner"
+    weight = 4
