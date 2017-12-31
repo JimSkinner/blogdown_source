@@ -1,0 +1,78 @@
+---
+title: Elegant linear albegra in R with the Matrix package
+author: Jim Skinner
+date: '2017-12-31'
+slug: elegant-linear-albegra-in-r-with-the-matrix-package
+categories: []
+tags: [R, linear algebra, Matrix, code optimisation]
+---
+
+The [Matrix](https://cran.r-project.org/web/packages/Matrix/index.html) R package is a fantastic tool, allowing the user to construct structured matrices of different types (triangular, symmetric, sparse, etc). A common set of operations are offered for all types ($+$, $-$, `solve`, ...), meaning differently typed matrices can all be treated the same. Importantly, the method of storage for each matrix type takes advantage of its structure, as do the operations on these matrices.
+
+Below I construct 4 $d\times d$ matrices of different types: general dense, positive semidefinite, sparse and symmetric sparse.
+```{r}
+  library(Matrix)
+
+  d <- 1000
+
+  # Build a dense, symmetric and a sparse matrix. All are size d*d.
+  A    <- Matrix(rnorm(d*d), nrow=d, ncol=d) # Dense matrix
+  Asym <- as(crossprod(A), "dppMatrix") # Symmetric, positive semidefinite matrix
+  Asp  <- drop0(A, tol=2) # Sparse matrix
+  Aspsym <- drop0(Asym, tol=50) # Sparse symmetric matrix
+```
+
+`crossprod` is from the `Matrix` package; this works similarly to the `base::crossprod` function but returns a symmetric matrix class. I have used `as( , "dppMatrix")` to cast this to a *packed* positive-semidefinite matrix, so only one triangle is stored. `drop0` is used to remove any elements with absolute value below `tol`. This code produces `Asp` and `Aspsym` which are `r round(nnzero(Asp)/(d*d)*100, 1)`% and `r round(nnzero(Aspsym)/(d*d)*100, 1)`% sparse respectively.
+
+The classes of the matrices reflect their structure.
+```{r}
+  vapply(list(A, Asym, Asp, Aspsym), class, character(1))
+```
+
+The leading `d` in each case shows it is a matrix of doubles. The following two letters give us the structure: `ge` tells us it is a *general* matrix; `pp` tells us that the matrix is positive-semidefinite in packed storage (only one triangle stored); `gC` is for a general, column-compressed sparse matrix, and `sC` indicates a symmetric column-compressed sparse matrix. Only `A` stores all $d^2$ elements, so has the largest memory footprint.
+
+```{r, echo=FALSE}
+  library(pryr)
+  library(knitr)
+
+  sizes = data.frame(
+    "A"=capture.output(object_size(A)),
+    "Asym"=capture.output(object_size(Asym)),
+    "Asp"=capture.output(object_size(Asp)),
+    "Aspsym"=capture.output(object_size(Aspsym))
+  )
+  kable(sizes, align=c('llll'), row.names=FALSE)
+```
+
+My favourite feature is the very general `Matrix::solve` method.  If we have matrices $\mathbf{A}$ and $\mathbf{B}$, `X <- solve(A, B)` solves $\mathbf{AX} = \mathbf{B}$. This works very similarly to `base::solve`, but solves for $\mathbf{X}$ using a decomposition appropriate for the type of $\mathbf{A}$. Furthermore, whenever a decomposition is performed, this is saved in the `@factors` slot of the original matrix. This decomposition is then reused whenever a decomposition would be performed, such as solving a system, or calculating a determinant or condition number.
+
+```{r}
+  B <- Matrix(rnorm(d*10), ncol=10)
+
+  X1 <- solve(A, B)
+  X2 <- solve(Asym, B)
+  X3 <- solve(Asp, B)
+  X4 <- solve(Aspsym, B)
+```
+
+It is interesting to inspect the saved decompositions, which I do below. For more detail, consult the documentation on the [Matrix CRAN page](https://cran.r-project.org/web/packages/Matrix/index.html).
+
+```{r}
+  str(A@factors)
+```
+
+We can see that for the general dense matrix, an LU decomposition was performed, which is fairly standard. Looking at the decomposition for the symmetric dense matrix, we see it has type `pCholesky`: a packed Cholesky decomposition (does not store the triangle of zeroes). This is good behaviour; we do not need to worry about the most numerically stable method of solving our system, since `Matrix` figures it out for us.
+
+```{r}
+  str(Asym@factors)
+```
+
+More interesting decompositions appear in the sparse matrices. Starting with the symmetric matrix, we wee a decomposition of type `sparseLU`.
+```{r}
+  str(Asp@factors)
+```
+This is similar to the regular LU decomposition $\mathbf{A} = \mathbf{LU}$, but has two new pivot matrices $\mathbf{P}$, $\mathbf{Q}$. The sparse LU decomposes $\mathbf{A} = \mathbf{P}^\top\mathbf{LUQ}$, where the pivots are chosen such that $\mathbf{L}$ and $\mathbf{U}$ are sparse. This can be seen in the slots `@L`, `@U`. Such decomposition-sparsity is neccesary when dealing with sparse matrices; if we required a dense decomposition of the same size as the original matrix, then we would lose all benefit of using a sparse matrix in the first place.
+
+Finally, the class of the decomposition for `Aspsym` is `dCHMsimpl`. According to the [Matrix reference manual](https://cran.r-project.org/web/packages/Matrix/Matrix.pdf), this inherits from a more general class of ''CHOLMOD-based Cholesky factorizations of symmetric, sparse, compressed, column-oriented matrices''.
+
+In overview, I really like the matrix package because it becomes possible to write a single method that can deal with many matrix types without detailed knowledge of large numbers of matrix decompositions. Even without matrix inversions, I have experienced significant speed increases just from storing symmetric matrices as their appropriate `Matrix` class, since any addition/multiplication only needs to consider a single triangle. Methods `crossprod` and `symmpart` are also lifesavers when constructing symmetric matrices, as it means avoiding going through large general dense matrices during construction.
