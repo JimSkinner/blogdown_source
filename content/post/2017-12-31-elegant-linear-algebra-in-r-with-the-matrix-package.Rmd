@@ -1,8 +1,8 @@
 ---
-title: Elegant linear albegra in R with the Matrix package
+title: Elegant linear algebra in R with the Matrix package
 author: Jim Skinner
 date: '2017-12-31'
-slug: elegant-linear-albegra-in-r-with-the-matrix-package
+slug: elegant-linear-algebra-in-r-with-the-matrix-package
 categories: []
 tags: [R, linear algebra, Matrix, code optimisation]
 ---
