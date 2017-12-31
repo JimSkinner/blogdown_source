@@ -10,12 +10,11 @@ tags: [R, linear algebra, Matrix, code optimisation]
 The [Matrix](https://cran.r-project.org/web/packages/Matrix/index.html) R package is a fantastic tool, allowing the user to construct structured matrices of different types (triangular, symmetric, sparse, etc). A common set of operations are offered for all types ($+$, $-$, `solve`, ...), meaning differently typed matrices can all be treated the same. Importantly, the method of storage for each matrix type takes advantage of its structure, as do the operations on these matrices.
 
 Below I construct 4 $d\times d$ matrices of different types: general dense, positive semidefinite, sparse and symmetric sparse.
-```{r}
+```{r build-matrices, results='hide', message=FALSE}
   library(Matrix)
 
   d <- 1000
 
-  # Build a dense, symmetric and a sparse matrix. All are size d*d.
   A    <- Matrix(rnorm(d*d), nrow=d, ncol=d) # Dense matrix
   Asym <- as(crossprod(A), "dppMatrix") # Symmetric, positive semidefinite matrix
   Asp  <- drop0(A, tol=2) # Sparse matrix
@@ -34,6 +33,7 @@ The leading `d` in each case shows it is a matrix of doubles. The following two 
 ```{r, echo=FALSE}
   library(pryr)
   library(knitr)
+  library(kableExtra)
 
   sizes = data.frame(
     "A"=capture.output(object_size(A)),
@@ -41,7 +41,10 @@ The leading `d` in each case shows it is a matrix of doubles. The following two 
     "Asp"=capture.output(object_size(Asp)),
     "Aspsym"=capture.output(object_size(Aspsym))
   )
-  kable(sizes, align=c('llll'), row.names=FALSE)
+  kable_styling(row_spec(
+    kable(sizes, "html", row.names=FALSE,
+          table.attr='class="myTable"'),
+  0, bold=TRUE))
 ```
 
 My favourite feature is the very general `Matrix::solve` method.  If we have matrices $\mathbf{A}$ and $\mathbf{B}$, `X <- solve(A, B)` solves $\mathbf{AX} = \mathbf{B}$. This works very similarly to `base::solve`, but solves for $\mathbf{X}$ using a decomposition appropriate for the type of $\mathbf{A}$. Furthermore, whenever a decomposition is performed, this is saved in the `@factors` slot of the original matrix. This decomposition is then reused whenever a decomposition would be performed, such as solving a system, or calculating a determinant or condition number.
@@ -76,3 +79,9 @@ This is similar to the regular LU decomposition $\mathbf{A} = \mathbf{LU}$, but 
 Finally, the class of the decomposition for `Aspsym` is `dCHMsimpl`. According to the [Matrix reference manual](https://cran.r-project.org/web/packages/Matrix/Matrix.pdf), this inherits from a more general class of ''CHOLMOD-based Cholesky factorizations of symmetric, sparse, compressed, column-oriented matrices''.
 
 In overview, I really like the matrix package because it becomes possible to write a single method that can deal with many matrix types without detailed knowledge of large numbers of matrix decompositions. Even without matrix inversions, I have experienced significant speed increases just from storing symmetric matrices as their appropriate `Matrix` class, since any addition/multiplication only needs to consider a single triangle. Methods `crossprod` and `symmpart` are also lifesavers when constructing symmetric matrices, as it means avoiding going through large general dense matrices during construction.
+
+<style>
+  .myTable td {
+    padding: 10px;
+  }
+</style>
