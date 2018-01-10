@@ -1,0 +1,34 @@
+---
+title: Unit Tests for Expectation Maximisation
+author: Jim Skinner
+date: '2018-01-10'
+slug: unit-tests-for-expectation-maximisation
+categories: []
+tags:
+  - unit test
+  - testing
+  - expectation maximisation
+  - EM
+  - software
+---
+
+
+
+<p>I in the middle of producing an R package implementing a statistical model which finds a maximum-likelihood set of parameters <span class="math inline">\(\theta\)</span> using Expectation Maximisation (EM). Implementing EM can be tricky, since bugs can have non-obvious consequences, such as converging to the wrong set of parameters or not converging at all. However, EM turns out to be very easy to write unit tests for.</p>
+<p>In maximising the log posterior, EM iterates between two steps:</p>
+<ol style="list-style-type: decimal">
+<li><p>Find the expected value of the complete log likelihood: <span class="math display">\[
+  Q(\theta | \theta^{(t)}) = \mathbb{E}_{\mathbf{Z} | \mathbf{X}, \theta^{(t)}}\left[ \log p(\mathbf{X}, \mathbf{Z} | \theta) \right]
+\]</span></p></li>
+<li><p>Maximise this with respect to the parameters: <span class="math display">\[
+  \theta^{(t+1)} = \underset{\theta}{\mathrm{argmax}} \, Q(\theta | \theta^{(t)})
+\]</span></p></li>
+</ol>
+<p>Typically (2) is done in closed form. This means taking some derivatives and doing some linear algebra by hand, <em>then</em> coding up the solution as the maximisation-step. That leaves a lot of room for mistakes! However, we can make sure that our M-step is correct by writing unit tests for the following:</p>
+<ul>
+<li>After maximization, the value of <span class="math inline">\(Q\)</span> increases: <span class="math inline">\(Q(\theta^{(t+1)} | \theta^{(t)}) &gt; Q(\theta^{(t)} | \theta^{(t)})\)</span></li>
+<li>The numerical gradient of <span class="math inline">\(Q(\theta^{(t+1)} | \theta^{(t)})\)</span> with respect to <span class="math inline">\(\theta^{(t+1)}\)</span> is a vector of zeroes</li>
+<li>The numerical Hessian of <span class="math inline">\(Q(\theta^{(t+1)} | \theta^{(t)})\)</span> is negative definite</li>
+</ul>
+<p>Similarly we can confirm the entire EM procedure is working by iterating until convergence, and checking numerically that we have reached a zero-gradient point of the likelihood (again with negative-definite Hessian). There is almost certainly an existing package for finding numerical gradients/Hessians in your language of choice; I use the <code>numDeriv</code> R package.</p>
+<p>For many models, step (1) reduces to finding expectations of the latent variables <span class="math inline">\(\mathbf{Z}\)</span>. Often this expectation reduces to a particularly simple form for certain values of <span class="math inline">\(\theta\)</span>. I have found it useful to check that my function computing expectations agrees with these simplifying solutions, and write these up as more unit tests. Often a number of simpler forms exist which involve setting different components of <span class="math inline">\(\theta\)</span> to 0 or <span class="math inline">\(\mathit{I}\)</span>, and this can help diagnose which elements of <span class="math inline">\(\theta\)</span> are problematic.</p>
